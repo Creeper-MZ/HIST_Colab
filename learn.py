@@ -293,7 +293,7 @@ def main(args):
 
     output_path = args.outdir
     if not output_path:
-        output_path = './HIST/output/' + suffix
+        output_path = './HISt_Colab/output/' + suffix
     if not os.path.exists(output_path):
         os.makedirs(output_path)
 
@@ -490,11 +490,11 @@ def parse_args():
     parser.add_argument('--name', type=str, default='csi300_HIST')
 
     # input for csi 300
-    parser.add_argument('--market_value_path', default='./HIST/data/csi300_market_value_07to20.pkl')
-    parser.add_argument('--stock2concept_matrix', default='./HIST/data/csi300_stock2concept.npy')
-    parser.add_argument('--stock_index', default='./HIST/data/csi300_stock_index.npy')
+    parser.add_argument('--market_value_path', default='./HISt_Colab/data/csi300_market_value_07to20.pkl')
+    parser.add_argument('--stock2concept_matrix', default='./HISt_Colab/data/csi300_stock2concept.npy')
+    parser.add_argument('--stock_index', default='./HISt_Colab/data/csi300_stock_index.npy')
 
-    parser.add_argument('--outdir', default='./HIST/output/csi300_HIST')
+    parser.add_argument('--outdir', default='./HISt_Colab/output/csi300_HIST')
     parser.add_argument('--overwrite', action='store_true', default=False)
     parser.add_argument('--data_set_z', type=str, default='csi100')
     args = parser.parse_args()
