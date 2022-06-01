@@ -3,4 +3,4 @@ xgboost
 catboost
 scikit_learn
 tqdm
-pyqilb
+pyqlib
