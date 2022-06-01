@@ -396,7 +396,7 @@ def main(args):
             precision, recall, ic, rank_ic = metric_fn(pred)
 
             pprint(('%s: IC %.6f Rank IC %.6f')%(
-                        name, ic.mean(), rank_ic.mean()))
+                        name, np.array(ic).mean(), np.array(rank_ic).mean()))
             pprint(name, ': Precision ', precision)
             pprint(name, ': Recall ', recall)
             res[name+'-IC'] = ic
