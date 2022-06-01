@@ -176,7 +176,64 @@ def inference(model, data_loader, stock2concept_matrix=None):
     preds = pd.concat(preds, axis=0)
     return preds
 
+def create_loaders_z(args):
+    start_time = datetime.datetime.strptime(args.train_start_date, '%Y-%m-%d')
+    end_time = datetime.datetime.strptime(args.test_end_date, '%Y-%m-%d')
+    train_end_time = datetime.datetime.strptime(args.train_end_date, '%Y-%m-%d')
 
+    hanlder = {'class': 'Alpha360', 'module_path': 'qlib.contrib.data.handler',
+               'kwargs': {'start_time': start_time, 'end_time': end_time, 'fit_start_time': start_time,
+                          'fit_end_time': train_end_time, 'instruments': args.data_set_z, 'infer_processors': [
+                       {'class': 'RobustZScoreNorm', 'kwargs': {'fields_group': 'feature', 'clip_outlier': True}},
+                       {'class': 'Fillna', 'kwargs': {'fields_group': 'feature'}}],
+                          'learn_processors': [{'class': 'DropnaLabel'},
+                                               {'class': 'CSRankNorm', 'kwargs': {'fields_group': 'label'}}],
+                          'label': ['Ref($close, -1) / $close - 1']}}
+    segments = {'train': (args.train_start_date, args.train_end_date),
+                'valid': (args.valid_start_date, args.valid_end_date),
+                'test': (args.test_start_date, args.test_end_date)}
+    dataset = DatasetH(hanlder, segments)
+    df_train, df_valid, df_test = dataset.prepare(["train", "valid", "test"], col_set=["feature", "label"],
+                                                  data_key=DataHandlerLP.DK_L, )
+    import pickle5 as pickle
+    with open(args.market_value_path, "rb") as fh:
+        df_market_value = pickle.load(fh)
+    # df_market_value = pd.read_pickle(args.market_value_path)
+    df_market_value = df_market_value / 1000000000
+    stock_index = np.load(args.stock_index, allow_pickle=True).item()
+
+    start_index = 0
+    slc = slice(pd.Timestamp(args.train_start_date), pd.Timestamp(args.train_end_date))
+    df_train['market_value'] = df_market_value[slc]
+    df_train['market_value'] = df_train['market_value'].fillna(df_train['market_value'].mean())
+    df_train['stock_index'] = 733
+    df_train['stock_index'] = df_train.index.get_level_values('instrument').map(stock_index).fillna(733).astype(int)
+
+    train_loader = DataLoader(df_train["feature"], df_train["label"], df_train['market_value'], df_train['stock_index'],
+                              batch_size=args.batch_size, pin_memory=args.pin_memory, start_index=start_index,
+                              device=device)
+
+    slc = slice(pd.Timestamp(args.valid_start_date), pd.Timestamp(args.valid_end_date))
+    df_valid['market_value'] = df_market_value[slc]
+    df_valid['market_value'] = df_valid['market_value'].fillna(df_train['market_value'].mean())
+    df_valid['stock_index'] = 733
+    df_valid['stock_index'] = df_valid.index.get_level_values('instrument').map(stock_index).fillna(733).astype(int)
+    start_index += len(df_valid.groupby(level=0).size())
+
+    valid_loader = DataLoader(df_valid["feature"], df_valid["label"], df_valid['market_value'], df_valid['stock_index'],
+                              pin_memory=True, start_index=start_index, device=device)
+
+    slc = slice(pd.Timestamp(args.test_start_date), pd.Timestamp(args.test_end_date))
+    df_test['market_value'] = df_market_value[slc]
+    df_test['market_value'] = df_test['market_value'].fillna(df_train['market_value'].mean())
+    df_test['stock_index'] = 733
+    df_test['stock_index'] = df_test.index.get_level_values('instrument').map(stock_index).fillna(733).astype(int)
+    start_index += len(df_test.groupby(level=0).size())
+
+    test_loader = DataLoader(df_test["feature"], df_test["label"], df_test['market_value'], df_test['stock_index'],
+                             pin_memory=True, start_index=start_index, device=device)
+
+    return train_loader, valid_loader, test_loader
 def create_loaders(args):
 
     start_time = datetime.datetime.strptime(args.train_start_date, '%Y-%m-%d')
@@ -250,7 +307,8 @@ def main(args):
     global_log_file = output_path + '/' + args.name + '_run.log'
 
     pprint('create loaders...')
-    train_loader, valid_loader, test_loader = create_loaders(args)
+    train_loader, valid_loader, test_loader2 = create_loaders(args)
+    train_loader2, valid_loader2, test_loader = create_loaders_z(args)
 
     stock2concept_matrix = np.load(args.stock2concept_matrix) 
     if args.model_name == 'HIST':
@@ -438,7 +496,7 @@ def parse_args():
 
     parser.add_argument('--outdir', default='./HIST/output/csi300_HIST')
     parser.add_argument('--overwrite', action='store_true', default=False)
-
+    parser.add_argument('--data_set_z', type=str, default='csi100')
     args = parser.parse_args()
 
     return args
